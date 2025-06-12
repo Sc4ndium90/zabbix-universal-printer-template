@@ -9,7 +9,7 @@ Elements created by the template
 - [ ] Printing statistics (pages printed)
 
 Graphics
-- [x] Marker Supplies (toner, ink, waste collectors, etc)
+- [ ] Marker Supplies (toner, ink, waste collectors, etc)
 
 Triggers
 - [ ] Marker Supplies (toner, ink, waste collectors, etc)
