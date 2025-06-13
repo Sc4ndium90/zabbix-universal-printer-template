@@ -1,6 +1,6 @@
 {
     "zabbix_export": {
-        "version": "6.4",
+        "version": "7.2",
         "template_groups": [
             {
                 "uuid": "7df96b18c230490a9a0a9e2307226338",
@@ -25,8 +25,8 @@
                         "snmp_oid": ".1.3.6.1.2.1.1.5.0",
                         "key": "printer.hostname",
                         "delay": "24h",
-                        "value_type": "TEXT",
-                        "trends": "0"
+                        "history": "90d",
+                        "value_type": "TEXT"
                     }
                 ],
                 "discovery_rules": [
@@ -36,6 +36,8 @@
                         "type": "SNMP_AGENT",
                         "snmp_oid": "discovery[{#SUPPLIES.DESCRIPTION},.1.3.6.1.2.1.43.11.1.1.6.1,{#SUPPLIES.LEVEL},.1.3.6.1.2.1.43.11.1.1.9.1,{#SUPPLIES.TYPE},.1.3.6.1.2.1.43.11.1.1.5.1,{#SUPPLIES.COLORANT},.1.3.6.1.2.1.43.12.1.1.4.1]",
                         "key": "discovery.supplies",
+                        "lifetime": "30d",
+                        "enabled_lifetime_type": "DISABLE_NEVER",
                         "item_prototypes": [
                             {
                                 "uuid": "658c6cd9b78540b48284bcd42b27b4f8",
@@ -44,15 +46,93 @@
                                 "snmp_oid": ".1.3.6.1.2.1.43.11.1.1.9.1.{#SNMPINDEX}",
                                 "key": "supplies.[{#ELEMENT.KEY}]",
                                 "delay": "5m",
+                                "history": "90d",
                                 "value_type": "FLOAT",
                                 "units": "%"
+                            }
+                        ],
+                        "graph_prototypes": [
+                            {
+                                "uuid": "6d29f8176871472a8080504d267fc7dd",
+                                "name": "{#SUPPLIES.DESCRIPTION}",
+                                "width": "200",
+                                "yaxismax": "0",
+                                "show_work_period": "NO",
+                                "show_triggers": "NO",
+                                "type": "PIE",
+                                "graph_items": [
+                                    {
+                                        "color": "1A7C11",
+                                        "calc_fnc": "MIN",
+                                        "item": {
+                                            "host": "Universal Printer Template",
+                                            "key": "supplies.[{#ELEMENT.KEY}]"
+                                        }
+                                    }
+                                ]
                             }
                         ],
                         "preprocessing": [
                             {
                                 "type": "JAVASCRIPT",
                                 "parameters": [
-                                    "var data = JSON.parse(value);\n\nconst SupplyTypeEnum = {\n  1: \"other\",\n  2: \"unknown\",\n  3: \"toner\",\n  4: \"wasteToner\",\n  5: \"ink\",\n  6: \"inkCartridge\",\n  7: \"inkRibbon\",\n  8: \"wasteInk\",\n  9: \"opc\",\n  10: \"developer\",\n  11: \"fuserOil\",\n  12: \"solidWax\",\n  13: \"ribbonWax\",\n  14: \"wasteWax\",\n  15: \"fuser\",\n  16: \"coronaWire\",\n  17: \"fuserOilWick\",\n  18: \"cleanerUnit\",\n  19: \"fuserCleaningPad\",\n  20: \"transferUnit\",\n  21: \"tonerCartridge\",\n  22: \"fuserOiler\",\n  23: \"water\",\n  24: \"wasteWater\",\n  25: \"glueWaterAdditive\",\n  26: \"wastePaper\",\n  27: \"bindingSupply\",\n  28: \"bandingSupply\",\n  29: \"stitchingWire\",\n  30: \"shrinkWrap\",\n  31: \"paperWrap\",\n  32: \"staples\",\n  33: \"inserts\",\n  34: \"covers\"\n};\n\n// Go through each entries\nfor (var i = 0; i < data.length; i++) {\n\n    /*\n        Converts all descriptions and colorants containing only hexadecimal values to UTF-8 text\n    */\n    //var descriptions = Object.keys(data[i]).filter(key => /description|colorant/i.test(key))\n    var descriptions = []; var keys = Object.keys(data[i]);\n    for (var k = 0; k < keys.length; k++) if (/description|colorant/i.test(keys[k])) descriptions.push(keys[k]);\n\n    for (var d = 0; d < descriptions.length; d++) {\n        var desc = data[i][descriptions[d]].replace(/\\s+/g, '').toLowerCase();\n        if (/^[0-9a-fA-F]+$/.test(desc) && desc.length % 2 === 0) {\n            var hex = desc; var bytes = []\n            for (var j = 0; j < hex.length; j +=2) { bytes.push(parseInt(hex.substr(j,2),16)) }\n            var text = new TextDecoder('utf-8').decode(new Uint8Array(bytes)).replace(/\\u0000/g, '')\n            data[i][descriptions[d]] = text\n        }\n    }\n\n    /*\n        Generating the Key for the element [1,2,3,4,5,6,7,8,9,10,12,13,14,21]\n        The Key have the following form : \n        - supplies.color.{COLOR} : for a marker colorant cartridge\n        - supplies.{TYPE}.{N} : any other supplies (TYPE: PrtMarkerSuppliesTypeTC, N: if multiple unit of this supply, Integer32 number)\n    */\n    var type = parseInt(data[i][\"{#SUPPLIES.TYPE}\"])\n    var key = SupplyTypeEnum[type] + (type === 1 || type === 2 ? \".\" + i : \"\"); var coloredTypes = [3,5,6,7,9,10,12,13,21]\n    \n    if (coloredTypes.indexOf(type) !== -1 ) {\n        var index = i; while (!data[index][\"{#SUPPLIES.COLORANT}\"]) index -= 4\n        key += \".\" + data[index][\"{#SUPPLIES.COLORANT}\"]\n    }  \n\n    data[i][\"{#ELEMENT.KEY}\"] = key\n}\n\nreturn JSON.stringify(data);"
+                                    "var data = JSON.parse(value);\n\nconst SupplyTypeEnum = {\n  1: \"other\",\n  2: \"unknown\",\n  3: \"toner\",\n  4: \"wasteToner\",\n  5: \"ink\",\n  6: \"inkCartridge\",\n  7: \"inkRibbon\",\n  8: \"wasteInk\",\n  9: \"opc\",\n  10: \"developer\",\n  11: \"fuserOil\",\n  12: \"solidWax\",\n  13: \"ribbonWax\",\n  14: \"wasteWax\",\n  15: \"fuser\",\n  16: \"coronaWire\",\n  17: \"fuserOilWick\",\n  18: \"cleanerUnit\",\n  19: \"fuserCleaningPad\",\n  20: \"transferUnit\",\n  21: \"tonerCartridge\",\n  22: \"fuserOiler\",\n  23: \"water\",\n  24: \"wasteWater\",\n  25: \"glueWaterAdditive\",\n  26: \"wastePaper\",\n  27: \"bindingSupply\",\n  28: \"bandingSupply\",\n  29: \"stitchingWire\",\n  30: \"shrinkWrap\",\n  31: \"paperWrap\",\n  32: \"staples\",\n  33: \"inserts\",\n  34: \"covers\"\n};\n\n// Go through each entries\nfor (var i = 0; i < data.length; i++) {\n\n    /*\n        Converts all descriptions and colorants containing only hexadecimal values to UTF-8 text\n    */\n    var descriptions = []; var keys = Object.keys(data[i]);\n    for (var k = 0; k < keys.length; k++) if (/description|colorant/i.test(keys[k])) descriptions.push(keys[k]);\n\n    for (var d = 0; d < descriptions.length; d++) {\n        var desc = data[i][descriptions[d]].replace(/\\s+/g, '').toLowerCase();\n        if (/^[0-9a-fA-F]+$/.test(desc) && desc.length % 2 === 0) {\n            var hex = desc; var bytes = []\n            for (var j = 0; j < hex.length; j +=2) { bytes.push(parseInt(hex.substr(j,2),16)) }\n            var text = new TextDecoder('utf-8').decode(new Uint8Array(bytes)).replace(/\\u0000/g, '')\n            data[i][descriptions[d]] = text\n        }\n    }\n\n    /*\n        Puts to lower case and remove un-necessary text to colorant\n    */\n    if (data[i][\"{#SUPPLIES.COLORANT}\"]) data[i][\"{#SUPPLIES.COLORANT}\"] = data[i][\"{#SUPPLIES.COLORANT}\"].match(/yellow|magenta|black|cyan/i)[0].toLowerCase()\n\n    /*\n        Generating the Key for the element [1,2,3,4,5,6,7,8,9,10,12,13,14,21]\n        The Key have the following form : \n        - supplies.color.{COLOR} : for a marker colorant cartridge\n        - supplies.{TYPE}.{N} : any other supplies (TYPE: PrtMarkerSuppliesTypeTC, N: if multiple unit of this supply, Integer32 number)\n    */\n    var type = parseInt(data[i][\"{#SUPPLIES.TYPE}\"])\n    var key = SupplyTypeEnum[type] + (type === 1 || type === 2 ? \".\" + i : \"\"); var coloredTypes = [3,5,6,7,9,10,12,13,21]\n    \n    if (coloredTypes.indexOf(type) !== -1 ) {\n        var index = i; while (!data[index][\"{#SUPPLIES.COLORANT}\"]) index -= 4\n        key += \".\" + data[index][\"{#SUPPLIES.COLORANT}\"]\n    }  \n\n    data[i][\"{#ELEMENT.KEY}\"] = key\n}\n\nreturn JSON.stringify(data);"
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "dashboards": [
+                    {
+                        "uuid": "b875b9acd39d4cb0b970cb0f73bdecc9",
+                        "name": "Dashboard",
+                        "pages": [
+                            {
+                                "widgets": [
+                                    {
+                                        "type": "problems",
+                                        "name": "Problem history",
+                                        "x": "36",
+                                        "width": "36",
+                                        "height": "5",
+                                        "fields": [
+                                            {
+                                                "type": "STRING",
+                                                "name": "reference",
+                                                "value": "PFVSK"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "severities.0",
+                                                "value": "1"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "severities.1",
+                                                "value": "2"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "severities.2",
+                                                "value": "3"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "severities.3",
+                                                "value": "4"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "severities.4",
+                                                "value": "5"
+                                            },
+                                            {
+                                                "type": "INTEGER",
+                                                "name": "show",
+                                                "value": "2"
+                                            }
+                                        ]
+                                    }
                                 ]
                             }
                         ]
