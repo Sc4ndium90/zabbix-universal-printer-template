@@ -27,6 +27,22 @@
                         "delay": "24h",
                         "history": "90d",
                         "value_type": "TEXT"
+                    },
+                    {
+                        "uuid": "d09e048f19104232a30055e65d9270e7",
+                        "name": "Test",
+                        "type": "SNMP_AGENT",
+                        "snmp_oid": "discovery[{#ALERT.SEVERITY},.1.3.6.1.2.1.43.18.1.1.2,{#ALERT.TRAINING},.1.3.6.1.2.1.43.18.1.1.3,{#ALERT.GROUP},.1.3.6.1.2.1.43.18.1.1.4,{#ALERT.GROUP_INDEX},.1.3.6.1.2.1.43.18.1.1.5,{#ALERT.LOCATION},.1.3.6.1.2.1.43.18.1.1.6,{#ALERT.CODE},.1.3.6.1.2.1.43.18.1.1.7,{#ALERT.DESCRIPTION},.1.3.6.1.2.1.43.18.1.1.8,{#ALERT.TIME},.1.3.6.1.2.1.43.18.1.1.9]",
+                        "key": "test",
+                        "value_type": "TEXT",
+                        "preprocessing": [
+                            {
+                                "type": "JAVASCRIPT",
+                                "parameters": [
+                                    "var data = JSON.parse(value);\n\n// Check if the content is a Hexadecimal string\nconst str0 = data[0]['{#ALERT.DESCRIPTION}'].replace(/\\s+/g, '').toLowerCase();\nif (/^[0-9a-fA-F]+$/.test(str0) && str0.length % 2 === 0) {\n\nfor (var i = 0; i < data.length; i++) {\n    if (data[i][\"{#ALERT.DESCRIPTION}\"]) {\n        var hex = data[i][\"{#ALERT.DESCRIPTION}\"].replace(/\\s+/g, '').toLowerCase();\n\n        if (hex.length % 2 !== 0) {\n            throw new Error(\"La cha\u00eene hexad\u00e9cimale doit avoir un nombre pair de caract\u00e8res.\");\n        }\n\n        var bytes = [];\n        for (var j = 0; j < hex.length; j += 2) {\n            bytes.push(parseInt(hex.substr(j, 2), 16));\n        }\n\n        var decoder = new TextDecoder('utf-8');\n        var text = decoder.decode(new Uint8Array(bytes));\n\n        var result = text.replace(/\\u0000/g, '');\n\n        data[i][\"{#ALERT.DESCRIPTION}\"] = result;\n    }\n}\n\n}\nreturn JSON.stringify(data);"
+                                ]
+                            }
+                        ]
                     }
                 ],
                 "discovery_rules": [
@@ -34,7 +50,7 @@
                         "uuid": "a35dbebcff9d4a53b18da203a06925c4",
                         "name": "Supplies discovery",
                         "type": "SNMP_AGENT",
-                        "snmp_oid": "discovery[{#SUPPLIES.DESCRIPTION},.1.3.6.1.2.1.43.11.1.1.6.1,{#SUPPLIES.LEVEL},.1.3.6.1.2.1.43.11.1.1.9.1,{#SUPPLIES.TYPE},.1.3.6.1.2.1.43.11.1.1.5.1,{#SUPPLIES.COLORANT},.1.3.6.1.2.1.43.12.1.1.4.1]",
+                        "snmp_oid": "discovery[{#SUPPLIES.DESCRIPTION},.1.3.6.1.2.1.43.11.1.1.6.1,{#SUPPLIES.LEVEL},.1.3.6.1.2.1.43.11.1.1.9.1,{#SUPPLIES.TYPE},.1.3.6.1.2.1.43.11.1.1.5.1,{#SUPPLIES.COLORANT},.1.3.6.1.2.1.43.12.1.1.4.1,{#SUPPLIES.MAX_LEVEL},.1.3.6.1.2.1.43.11.1.1.8.1]",
                         "key": "discovery.supplies",
                         "lifetime": "30d",
                         "enabled_lifetime_type": "DISABLE_NEVER",
@@ -48,7 +64,27 @@
                                 "delay": "5m",
                                 "history": "90d",
                                 "value_type": "FLOAT",
-                                "units": "%"
+                                "units": "%",
+                                "trigger_prototypes": [
+                                    {
+                                        "uuid": "d1bda5bf458b40a7a58fea6183d704db",
+                                        "expression": "last(/Universal Printer Template/supplies.[{#ELEMENT.KEY}])=0",
+                                        "name": "Empty supply - {#SUPPLIES.DESCRIPTION}",
+                                        "priority": "HIGH"
+                                    },
+                                    {
+                                        "uuid": "8d08b46173064ad3a0abefd9c6b231e8",
+                                        "expression": "between(last(/Universal Printer Template/supplies.[{#ELEMENT.KEY}]),0,15)=1",
+                                        "name": "Low level - {#SUPPLIES.DESCRIPTION}",
+                                        "priority": "WARNING"
+                                    },
+                                    {
+                                        "uuid": "aaf705873519481393712155c3f15198",
+                                        "expression": "last(/Universal Printer Template/supplies.[{#ELEMENT.KEY}])=-2",
+                                        "name": "Unknown or full supply - {#SUPPLIES.DESCRIPTION}",
+                                        "priority": "HIGH"
+                                    }
+                                ]
                             }
                         ],
                         "graph_prototypes": [
@@ -76,7 +112,7 @@
                             {
                                 "type": "JAVASCRIPT",
                                 "parameters": [
-                                    "var data = JSON.parse(value);\n\nconst SupplyTypeEnum = {\n  1: \"other\",\n  2: \"unknown\",\n  3: \"toner\",\n  4: \"wasteToner\",\n  5: \"ink\",\n  6: \"inkCartridge\",\n  7: \"inkRibbon\",\n  8: \"wasteInk\",\n  9: \"opc\",\n  10: \"developer\",\n  11: \"fuserOil\",\n  12: \"solidWax\",\n  13: \"ribbonWax\",\n  14: \"wasteWax\",\n  15: \"fuser\",\n  16: \"coronaWire\",\n  17: \"fuserOilWick\",\n  18: \"cleanerUnit\",\n  19: \"fuserCleaningPad\",\n  20: \"transferUnit\",\n  21: \"tonerCartridge\",\n  22: \"fuserOiler\",\n  23: \"water\",\n  24: \"wasteWater\",\n  25: \"glueWaterAdditive\",\n  26: \"wastePaper\",\n  27: \"bindingSupply\",\n  28: \"bandingSupply\",\n  29: \"stitchingWire\",\n  30: \"shrinkWrap\",\n  31: \"paperWrap\",\n  32: \"staples\",\n  33: \"inserts\",\n  34: \"covers\"\n};\n\n// Go through each entries\nfor (var i = 0; i < data.length; i++) {\n\n    /*\n        Converts all descriptions and colorants containing only hexadecimal values to UTF-8 text\n    */\n    var descriptions = []; var keys = Object.keys(data[i]);\n    for (var k = 0; k < keys.length; k++) if (/description|colorant/i.test(keys[k])) descriptions.push(keys[k]);\n\n    for (var d = 0; d < descriptions.length; d++) {\n        var desc = data[i][descriptions[d]].replace(/\\s+/g, '').toLowerCase();\n        if (/^[0-9a-fA-F]+$/.test(desc) && desc.length % 2 === 0) {\n            var hex = desc; var bytes = []\n            for (var j = 0; j < hex.length; j +=2) { bytes.push(parseInt(hex.substr(j,2),16)) }\n            var text = new TextDecoder('utf-8').decode(new Uint8Array(bytes)).replace(/\\u0000/g, '')\n            data[i][descriptions[d]] = text\n        }\n    }\n\n    /*\n        Puts to lower case and remove un-necessary text to colorant\n    */\n    if (data[i][\"{#SUPPLIES.COLORANT}\"]) data[i][\"{#SUPPLIES.COLORANT}\"] = data[i][\"{#SUPPLIES.COLORANT}\"].match(/yellow|magenta|black|cyan/i)[0].toLowerCase()\n\n    /*\n        Generating the Key for the element [1,2,3,4,5,6,7,8,9,10,12,13,14,21]\n        The Key have the following form : \n        - supplies.color.{COLOR} : for a marker colorant cartridge\n        - supplies.{TYPE}.{N} : any other supplies (TYPE: PrtMarkerSuppliesTypeTC, N: if multiple unit of this supply, Integer32 number)\n    */\n    var type = parseInt(data[i][\"{#SUPPLIES.TYPE}\"])\n    var key = SupplyTypeEnum[type] + (type === 1 || type === 2 ? \".\" + i : \"\"); var coloredTypes = [3,5,6,7,9,10,12,13,21]\n    \n    if (coloredTypes.indexOf(type) !== -1 ) {\n        var index = i; while (!data[index][\"{#SUPPLIES.COLORANT}\"]) index -= 4\n        key += \".\" + data[index][\"{#SUPPLIES.COLORANT}\"]\n    }  \n\n    data[i][\"{#ELEMENT.KEY}\"] = key\n}\n\nreturn JSON.stringify(data);"
+                                    "var data = JSON.parse(value);\n\nconst SupplyTypeEnum = {\n  1: \"other\",\n  2: \"unknown\",\n  3: \"toner\",\n  4: \"wasteToner\",\n  5: \"ink\",\n  6: \"inkCartridge\",\n  7: \"inkRibbon\",\n  8: \"wasteInk\",\n  9: \"opc\",\n  10: \"developer\",\n  11: \"fuserOil\",\n  12: \"solidWax\",\n  13: \"ribbonWax\",\n  14: \"wasteWax\",\n  15: \"fuser\",\n  16: \"coronaWire\",\n  17: \"fuserOilWick\",\n  18: \"cleanerUnit\",\n  19: \"fuserCleaningPad\",\n  20: \"transferUnit\",\n  21: \"tonerCartridge\",\n  22: \"fuserOiler\",\n  23: \"water\",\n  24: \"wasteWater\",\n  25: \"glueWaterAdditive\",\n  26: \"wastePaper\",\n  27: \"bindingSupply\",\n  28: \"bandingSupply\",\n  29: \"stitchingWire\",\n  30: \"shrinkWrap\",\n  31: \"paperWrap\",\n  32: \"staples\",\n  33: \"inserts\",\n  34: \"covers\"\n};\n\n// Go through each entries\nfor (var i = 0; i < data.length; i++) {\n\n    /*\n        Converts all descriptions and colorants containing only hexadecimal values to UTF-8 text\n    */\n    var descriptions = []; var keys = Object.keys(data[i]);\n    for (var k = 0; k < keys.length; k++) if (/description|colorant/i.test(keys[k])) descriptions.push(keys[k]);\n\n    for (var d = 0; d < descriptions.length; d++) {\n        var desc = data[i][descriptions[d]].replace(/\\s+/g, '').toLowerCase();\n        if (/^[0-9a-fA-F]+$/.test(desc) && desc.length % 2 === 0) {\n            var hex = desc; var bytes = []\n            for (var j = 0; j < hex.length; j +=2) { bytes.push(parseInt(hex.substr(j,2),16)) }\n            var text = new TextDecoder('utf-8').decode(new Uint8Array(bytes)).replace(/\\u0000/g, '')\n            data[i][descriptions[d]] = text\n        }\n    }\n\n    /*\n        Puts to lower case and remove un-necessary text to colorant\n    */\n    if (data[i][\"{#SUPPLIES.COLORANT}\"]) data[i][\"{#SUPPLIES.COLORANT}\"] = data[i][\"{#SUPPLIES.COLORANT}\"].match(/yellow|magenta|black|cyan/i)[0].toLowerCase()\n\n    /*\n        Generating the Key for the element [1,2,3,4,5,6,7,8,9,10,12,13,14,21]\n        The Key have the following form : \n        - supplies.color.{COLOR} : for a marker colorant cartridge\n        - supplies.{TYPE}.{N} : any other supplies (TYPE: PrtMarkerSuppliesTypeTC, N: if multiple unit of this supply, Integer32 number)\n    */\n    var type = parseInt(data[i][\"{#SUPPLIES.TYPE}\"])\n    var key = SupplyTypeEnum[type] + (type === 1 || type === 2 ? \".\" + i : \"\"); var coloredTypes = [3,5,6,7,9,10,12,13,21]\n    \n    if (coloredTypes.indexOf(type) !== -1 ) {\n        var index = i; while (!data[index][\"{#SUPPLIES.COLORANT}\"]) index -= 4\n        key += \".\" + data[index][\"{#SUPPLIES.COLORANT}\"]\n    }  \n\n    data[i][\"{#ELEMENT.KEY}\"] = key\n\n    data[i][\"{#SUPPLIES.LEVEL}\"] = Math.floor((data[i][\"{#SUPPLIES.LEVEL}\"] / data[i][\"{#SUPPLIES.MAX_LEVEL}\"])*100)\n}\n\nreturn JSON.stringify(data);"
                                 ]
                             }
                         ]
